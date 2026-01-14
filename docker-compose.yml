@@ -1,0 +1,35 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev
+    ports:
+      - "${PORT}:${PORT}"
+    env_file:
+      - .env
+    environment:
+      ENV: development
+    volumes:
+      - ./src:/app/src
+    depends_on:
+      - mongo
+
+  mongo:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodemo:/data/db
+  
+  geoserver:
+    image: docker.osgeo.org/geoserver:2.28.0
+    ports:
+      - "8080:8080"
+    volumes:
+      - type: bind
+        source: "C:/Users/JoaoM/Documentos/Faculdade/IC/GeoServer/geoserver-2.28.0-bin/data_dir"
+        target: /opt/geoserver_data
+
+volumes:
+  mongodemo:
+    external: true
