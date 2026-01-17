@@ -1,10 +1,12 @@
-from fastapi import Depends, FastAPI
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from fastapi import Body, Depends, FastAPI
 from pydantic import BaseModel
 from pymongo import AsyncMongoClient
 
 from .core.config import settings
 from .core.security.dependencies import protect
 from .exceptions.error_handler import handle_exceptions
+from .queues.client import PikaClient
 from .routers import auth_router, coffee_router, user_router
 from .utils.db import close_pool, create_pool, get_conn
 from .utils.logging import setup_logging
@@ -21,10 +23,18 @@ async def lifespan(app: FastAPI):
 	:type app: FastAPI
 	"""
 	app.state.pool = await create_pool()
+	app.state.rabbitmq = PikaClient()
+
+	scheduler = AsyncIOScheduler()
+	# scheduler.add_job(wtss_cron_job, "interval", seconds=5, args=[app])
+
+	await app.state.rabbitmq.connect()
+	scheduler.start()
 
 	yield
 
 	await close_pool(app.state.pool)
+	await app.state.rabbitmq.close()
 
 
 app = FastAPI(lifespan=lifespan)
@@ -75,9 +85,37 @@ async def protected_route(user=Depends(protect)):
 
 	:param token: JWT token for authentication
 	:type token: str
-	:param db: Database connection
-	:type db: AsyncMongoClient
 	:return: Success message
 	:rtype: dict
 	"""
 	return {"message": "You are authenticated!"}
+
+
+# Test message queue
+@app.post("/dummys-queue/")
+async def publish_dummy(user=Depends(protect), dummy: Dummy = Body(...)):
+	"""
+	Protected route that requires authentication.
+
+	:param token: JWT token for authentication
+	:type token: str
+	:return: Success message
+	:rtype: dict
+	"""
+	await app.state.rabbitmq.publish(
+		queue_name="bdc.wtss",
+		payload={
+			"id": dummy.id,
+			"dummy": dummy.name,
+		},
+	)
+
+	await app.state.rabbitmq.publish(
+		queue_name="bdc.stac",
+		payload={
+			"id": dummy.id,
+			"dummy": dummy.name,
+		},
+	)
+
+	return {"message": "Message published to the queue!"}
