@@ -1,6 +1,5 @@
 from typing import Any, List
 
-from bson import ObjectId
 from pydantic import ConfigDict, Field
 
 from src.models.base_model import CustomBaseModel
@@ -17,7 +16,7 @@ class CoffeeYield(CustomBaseModel):
 class CoffeeYieldOut(CoffeeYield):
 	"""Coffee yield output data model."""
 
-	id: ObjectId = Field(..., alias="_id")
+	id: str = Field(..., alias="_id")
 
 	model_config = ConfigDict(
 		arbitrary_types_allowed=True,
@@ -43,7 +42,7 @@ class PointTimeSeriesFetch(CustomBaseModel):
 class PointTimeSeriesOut(PointTimeSeries):
 	"""Point time series output data model."""
 
-	id: ObjectId = Field(..., alias="_id")
+	id: str = Field(..., alias="_id")
 
 	model_config = ConfigDict(
 		arbitrary_types_allowed=True,

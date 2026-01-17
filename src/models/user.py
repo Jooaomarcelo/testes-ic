@@ -41,7 +41,7 @@ class UserIn(CustomBaseModel):
 class UserOut(User):
 	"""User output data model (without password)."""
 
-	id: ObjectId | None = Field(default=None, alias="_id")
+	id: str | None = Field(default=None, alias="_id")
 
 	username: str
 	email: EmailStr

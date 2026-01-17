@@ -40,6 +40,8 @@ def run_wtss(
 		geocodigo = str(gdf.iloc[i]["CD_MUN"])
 		logger.info(f"📍 Processando polígono {i + 1}/{len(geometries)}...")
 
+		break
+
 		polygon_start_time = time.time()
 
 		try:
