@@ -4,7 +4,7 @@ from pathlib import Path
 import geopandas as gpd
 from celery.utils.log import get_task_logger
 
-from src.models.wtss import BDCBasePayload, WTSSPayload, parse_wtss_payload
+from models.bdc import BDCBasePayload, WTSSPayload, parse_wtss_payload
 from src.services.wtss_service import run_wtss
 from src.worker import app
 
@@ -30,7 +30,7 @@ def bdc_cron():
 	"""
 	from datetime import timedelta
 
-	from src.models.wtss import WTSSCronPayload
+	from models.bdc import WTSSCronPayload
 	from src.utils.date_now import get_utc_now
 
 	start_date = (get_utc_now() - timedelta(days=7)).isoformat().split("T")[0]
@@ -67,7 +67,11 @@ def handle_wtss(payload: dict):
 			f"Received WTSS task with payload: {parsed_payload.model_dump_json()}"
 		)
 
-		if parsed_payload.source == "cron":
+		if (
+			parsed_payload.source == "cron"
+			or parsed_payload.source == "admin"
+			and parsed_payload.geometry is None
+		):
 			logger.info(f"Loading GeoDataFrame from {DATA_DIR}")
 			gdf = gpd.read_file(DATA_DIR)
 		else:

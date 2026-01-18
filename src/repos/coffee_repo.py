@@ -8,6 +8,7 @@ from src.utils.app_error import AppError
 
 COFFEE = "cafe"
 COFFEE_YIELD = "producao"
+REPORTS = "pipeline_reports"
 
 
 # ===== Asynchronous Functions  =====
@@ -120,3 +121,67 @@ def update_points_time_series(
 
 	result = db.get_collection(COFFEE).bulk_write(operations)
 	return result
+
+
+def get_wtss_report(
+	db: Database,
+	job: str,
+	coverage: str,
+	start_date: str,
+	end_date: str,
+) -> dict[str, Any] | None:
+	"""
+	Retrieves a WTSS report document from the 'pipeline_reports' collection.
+	:param db: The database connection.
+	:param job: The job name.
+	:param coverage: The coverage name.
+	:param start_date: The start date of the report.
+	:param end_date: The end date of the report.
+	:return: The report document if found, else None.
+	"""
+	report = db.get_collection(REPORTS).find_one(
+		{
+			"job": job,
+			"coverage": coverage,
+			"start_date": start_date,
+			"end_date": end_date,
+		}
+	)
+	return report
+
+
+def save_wtss_report(
+	db: Database,
+	job_key: dict[str, Any],
+	report: dict[str, Any],
+):
+	"""
+	Saves or updates a WTSS report document into the 'wtss_reports' collection.
+
+	:param db: The database connection.
+	:param report: The report document to be saved.
+	"""
+	db.get_collection(REPORTS).update_one(
+		job_key,
+		{"$setOnInsert": report},
+		upsert=True,
+	)
+
+
+def update_wtss_report(
+	db: Database,
+	job_key: dict[str, Any],
+	update_fields: dict[str, Any],
+):
+	"""
+	Updates fields of a WTSS report document in the 'pipeline_reports' collection.
+
+	:param db: The database connection.
+	:param job_key: A dictionary containing the unique identifiers for the report
+					(e.g., job, coverage, start_date, end_date).
+	:param update_fields: A dictionary of fields to be updated in the report.
+	"""
+	db.get_collection(REPORTS).update_one(
+		job_key,
+		update_fields,
+	)
