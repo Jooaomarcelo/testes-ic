@@ -61,3 +61,9 @@ def parse_wtss_payload(raw: bytes | dict) -> WTSSPayload:
 	if isinstance(raw, bytes):
 		raw = json.loads(raw)
 	return wtss_adapter.validate_python(raw)
+
+
+def parse_stac_payload(raw: bytes | dict) -> BDCBasePayload:
+	if isinstance(raw, bytes):
+		raw = json.loads(raw)
+	return BDCBasePayload.model_validate(raw)

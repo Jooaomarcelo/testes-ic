@@ -3,6 +3,8 @@ from os import getenv as env
 from celery import Celery
 from celery.schedules import crontab
 
+every_16_days = 16 * 24
+
 app = Celery(
 	"coffee_tasks",
 	broker=env("CELERY_BROKER_URL"),
@@ -19,7 +21,7 @@ app.conf.task_routes = {
 app.conf.beat_schedule = {
 	"wtss_send_payload": {
 		"task": "src.tasks.wtss_cron",
-		"schedule": crontab(days="*/16"),  # A cada 16 dias
+		"schedule": crontab(hour=f"*/{every_16_days}"),  # A cada 16 dias
 	}
 }
 

@@ -18,9 +18,11 @@ dependencies = [
     "pydantic-settings>=2.12.0",
     "pyjwt[crypto]>=2.10.1",
     "pymongo>=4.16.0",
+    "pystac-client>=0.9.0",
     "python-multipart>=0.0.21",
     "uvicorn[standard]>=0.40.0",
     "wtss==2.0.0a3",
+    "rasterio>=1.5.0",
     "setuptools<81",
 ]
 

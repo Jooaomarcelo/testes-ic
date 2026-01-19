@@ -2,10 +2,11 @@ import logging
 import time
 from datetime import timedelta
 from os import getenv as env
-from typing import Literal, List
+from typing import List, Literal
 
 import geopandas as gpd
 from pymongo import MongoClient
+from requests.exceptions import HTTPError
 from shapely.geometry import MultiPolygon, Polygon
 from wtss import WTSS
 
@@ -23,7 +24,7 @@ def indedexes_to_process(
 ) -> List[int] | range:
 	"""
 	Determines which polygon indexes to process based on the specified mode and existing report.
-	
+
 	:param mode: Operation mode
 	:type mode: Literal["full", "resume", "retry_failed"]
 	:param existing_report: Existing WTSS report, if any
@@ -45,12 +46,25 @@ def indedexes_to_process(
 	else:  # full
 		return range(total_polygons)
 
+
 def run_wtss(
 	gdf: gpd.GeoDataFrame,
 	start_date: str,
 	end_date: str,
 	mode: Literal["full", "resume", "retry_failed"] = "full",
 ):
+	"""
+	Runs the WTSS data retrieval and storage process.
+
+	:param gdf: Geopandas DataFrame containing geometries
+	:type gdf: gpd.GeoDataFrame
+	:param start_date: Start date for data retrieval
+	:type start_date: str
+	:param end_date: End date for data retrieval
+	:type end_date: str
+	:param mode: Operation mode
+	:type mode: Literal["full", "resume", "retry_failed"]
+	"""
 	# Counters and stats
 	total_docs = 0
 	success = 0
@@ -84,8 +98,9 @@ def run_wtss(
 
 	if mode == "full" and not existing_report:
 		report = WTSSReport(
+			# TODO: Ajustar modelo para diferenciar geometrias (admin vs cron)
 			**job_key,
-			status="running",
+			status="partial",
 			summary={
 				"total_polygons": total_polygons,
 				"success": success,
@@ -95,10 +110,9 @@ def run_wtss(
 			created_at=get_utc_now(),
 			updated_at=get_utc_now(),
 		)
-		coffee_repo.save_wtss_report(db, job_key, report)
+		coffee_repo.save_wtss_report(db, job_key, report.model_dump())
 
 	indexes = indedexes_to_process(mode, existing_report, total_polygons)
-
 
 	start_time = time.time()
 
@@ -141,9 +155,7 @@ def run_wtss(
 				empty_series += 1
 				logger.info("Série temporal vazia para este polígono.")
 				if empty_series > 5:
-					logger.info(
-						"Muitas séries vazias. Interrompendo o processamento."
-					)
+					logger.info("Muitas séries vazias. Interrompendo o processamento.")
 					break
 
 				continue
@@ -201,10 +213,10 @@ def run_wtss(
 					f"No documents generated for polygon {i + 1} (geocodigo={geocodigo})"
 				)
 
-		except Exception as e:
+		except HTTPError as e:
 			failed += 1
 			error_entry = {
-				"index": i,
+				"polygon_index": i,
 				"geocodigo": geocodigo,
 				"error": str(e),
 			}
@@ -219,8 +231,37 @@ def run_wtss(
 				job_key,
 				{
 					"$push": {"errors": error_entry},
-					"summary.last_processed_index": i,
-					"updated_at": get_utc_now(),
+					"$set": {
+						"summary.last_processed_index": i,
+						"updated_at": get_utc_now(),
+					},
+					"$inc": {"summary.failed": 1},
+				},
+			)
+			break  # Stop processing on HTTP errors
+
+		except Exception as e:
+			failed += 1
+			error_entry = {
+				"polygon_index": i,
+				"geocodigo": geocodigo,
+				"error": str(e),
+			}
+			errors.append(error_entry)
+			logger.exception(
+				f"Error processing polygon {i + 1} (geocodigo={geocodigo})"
+			)
+
+			# Checkpoint
+			coffee_repo.update_wtss_report(
+				db,
+				job_key,
+				{
+					"$push": {"errors": error_entry},
+					"$set": {
+						"updated_at": get_utc_now(),
+					},
+					"$inc": {"summary.failed": 1},
 				},
 			)
 
@@ -228,27 +269,25 @@ def run_wtss(
 
 	status = "success" if failed == 0 else "partial" if success > 0 else "failed"
 
-	logger.info(
-		"WTSS job finished",
-		extra={
-			"status": status,
-			"success": success,
-			"failed": failed,
-			"total_time_seconds": round(total_time, 2),
-			"total_time_formatted": str(timedelta(seconds=total_time)).split(".")[0],
-			"total_docs_updated": total_docs,
-		},
-	)
+	info = {
+		"status": status,
+		"success": success,
+		"failed": failed,
+		"total_time_seconds": round(total_time, 2),
+		"total_time_formatted": str(timedelta(seconds=total_time)).split(".")[0],
+		"total_docs_updated": total_docs,
+	}
+	logger.info(f"WTSS job finished:\n{info}", extra=info)
 
 	# Final report update
-	coffee_repo.update_wtss_report(db, job_key, {
-		"$set": {
-			"status": status,
-			"summary": {
-				"total_polygons": total_polygons,
-				"success": success,
-				"failed": failed,
-			},
-			"updated_at": get_utc_now(),
-		}
-	})
+	coffee_repo.update_wtss_report(
+		db,
+		job_key,
+		{
+			"$set": {
+				"status": status,
+				"summary.success": success,
+				"updated_at": get_utc_now(),
+			}
+		},
+	)

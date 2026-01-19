@@ -1,35 +1,104 @@
 services:
-  api:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.dev
-    ports:
-      - "${PORT}:${PORT}"
-    env_file:
-      - .env
-    environment:
-      ENV: development
-    volumes:
-      - ./src:/app/src
-    depends_on:
-      - mongo
-
   mongo:
     image: mongo:latest
     ports:
-      - "27017:27017"
+      - '27017:27017'
     volumes:
       - mongodemo:/data/db
-  
+    healthcheck:
+      test: ['CMD', 'mongosh', '--eval', "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
   geoserver:
     image: docker.osgeo.org/geoserver:2.28.0
     ports:
-      - "8080:8080"
+      - '8080:8080'
     volumes:
       - type: bind
-        source: "C:/Users/JoaoM/Documentos/Faculdade/IC/GeoServer/geoserver-2.28.0-bin/data_dir"
+        source: 'geoserver/data_dir'
         target: /opt/geoserver_data
+
+  api:
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile.dev
+    container_name: api
+    command: uvicorn src.main:app --host 0.0.0.0 --port ${PORT} --reload
+    env_file:
+      - .env
+    ports:
+      - '${PORT}:${PORT}'
+    volumes:
+      - ./src:/app/src
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  celery_worker:
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile.dev
+    command: celery -A src.worker worker -Q bdc.wtss,bdc.stac -c 2 --loglevel=INFO
+    env_file:
+      - .env
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - 'wtss_shp_path/:/data/wtss_shp'
+      - 'stac_shp_path/:/data/stac_shp'
+      - ./src:/app/src
+      - ./data:/data
+
+  celery_beat:
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile.dev
+    command: celery -A src.worker beat --loglevel=INFO
+    env_file:
+      - .env
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src
+      - ./data:/data
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    ports:
+      - '15672:15672'
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASS}
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
 volumes:
   mongodemo:
+    external: true
+  redis-data:
     external: true
