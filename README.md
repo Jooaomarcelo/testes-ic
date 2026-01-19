@@ -61,20 +61,6 @@ http://localhost:{PORT}/docs
 docker-compose down
 ```
 
-## Development
-
-For development mode, you can use:
-
-```bash
-docker-compose -f docker-compose.yml up
-```
-
-For production mode:
-
-```bash
-docker-compose -f docker-compose.prod.yml up -d
-```
-
 ## Project Structure
 
 ```
