@@ -2,7 +2,9 @@
 
 ## Description
 
-Campo Vertentes Coffee API is a RESTful API built with FastAPI, MongoDB, and Docker. This project provides endpoints for managing coffee-related data with authentication and authorization features.
+Este repositório serve como estudo e experimentação das tecnologias utilizadas para desenvolvimento de uma aplicação final. Campo Vertentes Coffee API é uma API RESTful construída com FastAPI, MongoDB e Docker, fornecendo endpoints para gerenciamento de dados relacionados a café com recursos de autenticação e autorização. O projeto também implementa processamento assíncrono de tarefas utilizando Celery com RabbitMQ como broker de mensagens e Redis como backend de resultados.
+
+> **Nota:** Este é um projeto de estudo para explorar e aprender as tecnologias que serão aplicadas no desenvolvimento da aplicação final do projeto de Iniciação Científica.
 
 ## Features
 
@@ -12,6 +14,7 @@ Campo Vertentes Coffee API is a RESTful API built with FastAPI, MongoDB, and Doc
 - 🐳 Docker containerization
 - 📝 Automatic API documentation
 - 🔒 OAuth2 security implementation
+- ⚙️ Celery for asynchronous task processing
 
 ## Tech Stack
 
@@ -20,32 +23,40 @@ Campo Vertentes Coffee API is a RESTful API built with FastAPI, MongoDB, and Doc
 - **Docker** - Containerization
 - **Pydantic** - Data validation
 - **JWT** - Token-based authentication
+- **Celery** - Distributed task queue for asynchronous processing
+- **RabbitMQ** - Message broker for Celery
+- **Redis** - Result backend for Celery tasks
 
 ## How to Run
 
 ### Prerequisites
+
 - Docker
 - Docker Compose
 
 ### Steps
 
 1. Clone the repository:
+
 ```bash
 git clone https://github.com/Jooaomarcelo/fast-api-project
 cd backend-python
 ```
 
 2. Start the application with Docker Compose:
+
 ```bash
 docker-compose up -d
 ```
 
 3. Access the API documentation at:
+
 ```
 http://localhost:{PORT}/docs
 ```
 
 4. To stop the application:
+
 ```bash
 docker-compose down
 ```
@@ -53,11 +64,13 @@ docker-compose down
 ## Development
 
 For development mode, you can use:
+
 ```bash
 docker-compose -f docker-compose.yml up
 ```
 
 For production mode:
+
 ```bash
 docker-compose -f docker-compose.prod.yml up -d
 ```
